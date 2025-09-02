@@ -1,6 +1,6 @@
 # PRISM Models and Simulation Files
 
-This repository contains **PRISM model files, property specifications, and datasets** used in our study *“Model Checking for Effective Explainability Robotics”*.  
+This repository contains **PRISM model files** used in our study *“Model Checking for Effective Explainability Robotics”*.  
 It is provided to support **open science, reproducibility, and transparency**.
 
 ---
