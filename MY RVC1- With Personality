@@ -1,0 +1,171 @@
+// Robot vacuum cleaner system (RVC)- With Personality
+// Mohammed Alharbi
+smg
+
+// The 3 Players
+player RVC
+[RVCclean], [RVCmoves], [Explain], [LessExp], [MoreExp], [End]
+endplayer
+
+player HUMAN
+[AssessExplanation],[HumanResponse] 
+endplayer
+
+player ENVIRONMENT 
+[NewStep], [StepEnd]
+endplayer
+
+global turn:[ENVIRONMENT..HUMAN] init ENVIRONMENT;//turn: is used to explicitly encode alternating turns between different players
+const ENVIRONMENT=1; const RVC=2; const HUMAN=3; 
+	
+const int n; // size of the grid
+const double mr = 1; // rate that the robot moves
+const double mh = 2; // rate that the human moves
+
+global Task_Counter: int init 0; 
+
+const int Helpful=1; const int unhelpful=2; //Human Responses(2)
+
+global	Human_Resp:[0..unhelpful] init 0; //Human Responses (2): Helpful, unhelpful
+
+global Satisfy: bool init false; 
+
+global step:[NewStep..End] init NewStep; //Approach process ():
+
+const int NewStep=1; //New task, reset all variables
+const int RVCclean=2; //RVClean & obstacle 2 states
+const int RVCmoves=3; // 4 directions; each 25%
+const int Explain=4;
+const int LessExp=5;
+const int MoreExp=6;
+const int assessExp=7; 
+const int HumanResponse=8;
+const int StepEnd=9;
+const int simulationEnd=10; //End of the simulation
+const int End=11;
+
+
+//Personality Trait element
+const int INIT_Extrav;
+global Human_Extrav:[1..100] init INIT_Extrav; 
+
+//const int inital_Human_Accuracy;
+//global Human_Accuracy: int init inital_Human_Accuracy;
+
+//The global variables indicate the state of Explanation tactics execution (2 Explanation forms)
+global LessExpl: bool init false; //Give less explanation
+global MoreExpl: bool init false; //Give more explanation
+
+//Explanation Counters
+global LessExpCounter: int init 0;
+global MoreExpCounter: int init 0;
+ 
+global All_Done: bool init false; 
+
+const int AllTasks=500; // Number of cleaning tasks we want to simulate until win
+
+global obstacle: bool init false; 
+
+module ENVIRONMENT 	
+	Steps: [0..AllTasks] init 0;
+	
+	//step 1, reset all variables (2)
+	[NewStep] (turn=ENVIRONMENT) & (Steps < AllTasks) & (step=NewStep)-> //New day, reset all variables
+		(Human_Resp'=0) & (obstacle'= false) & (LessExpl'=false) & (MoreExpl'=false) & (Satisfy'=true) &(Steps'=Steps+1) 
+		& (turn'=RVC) &(step'= RVCclean);
+	[NewStep] (turn=ENVIRONMENT) & (Steps >= AllTasks) & (step=NewStep)-> 
+		 (step'= End);
+
+	//step 15: DayEnd
+	[StepEnd] (turn=ENVIRONMENT) & (Steps < AllTasks) &(step=StepEnd)-> //next day
+		   (Task_Counter'=Task_Counter+1)&(step'= NewStep); 
+
+	[StepEnd] (turn=ENVIRONMENT) & (Steps >= AllTasks) & (step=StepEnd)-> //end of the simulation
+		   (step'= simulationEnd);  
+
+endmodule
+
+module RVC
+
+	x : [1..n] init 1; // x position of RVC
+	y : [1..n] init 1; // y position of RVC
+
+	//step 2: RVClean (1)	
+	[RVCclean] (turn=RVC) & (step=RVCclean)-> 
+		0.5: (obstacle'= true) &(step'=Explain) //obstacle=true; need to Explain. 
+		+ 0.5: (obstacle'= false) &(step'=RVCmoves);//No obstacle: RVCmoves
+
+	//step 3: RVCmoves (2)
+	[RVCmoves] (x<n) & (y<n) & (step=RVCmoves)-> 
+	0.5:(x'=x+1)& (step'=RVCclean)// moves right
+	+ 0.5:(y'=y+1)& (step'=RVCclean);// moves up
+
+	[RVCmoves] (x<n) & (y=n) & (step=RVCmoves)-> 
+	(x'=x+1)& (step'=RVCclean);// moves right
+
+	[RVCmoves] (x=n) & (y<n) & (step=RVCmoves)-> 
+	(y'=y+1)& (step'=RVCclean);// moves up
+
+	[RVCmoves] x=n & y=n &(step=RVCmoves)-> 
+	(step'=simulationEnd);// win
+
+
+	//step 4: Determine Explain amount(3)
+	[Explain] (turn=RVC) &(Human_Extrav>=80)& (Satisfy=true)&(step=Explain) -> 0.9:(step'=MoreExp)+ 0.1:(step'=LessExp);
+	[Explain] (turn=RVC) &(Human_Extrav>=80)& (Satisfy=false)&(step=Explain) -> 0.9:(step'=LessExp)+ 0.1:(step'=MoreExp);
+	[Explain] (turn=RVC) &(Human_Extrav<80)&(Satisfy=true)&(step=Explain) -> 0.9:(step'=LessExp)+ 0.1:(step'=MoreExp);	
+	[Explain] (turn=RVC) &(Human_Extrav<80)&(Satisfy=false)&(step=Explain)  -> 0.9:(step'=MoreExp)+ 0.1:(step'=LessExp);// if not Satisfy
+
+	//steps 5-7: Explain amounts (6)	
+	[LessExp] (turn=RVC) & (step=LessExp)->
+		(LessExpCounter'=LessExpCounter+1) & (LessExpl'= true) & (turn'=HUMAN) & (step'=assessExp);
+	[MoreExp] (turn=RVC) & (step=MoreExp)->
+		(MoreExpCounter'=MoreExpCounter+1) & (MoreExpl'= true) & (turn'=HUMAN) & (step'=assessExp);
+
+	[End] (turn=RVC) & (step=End) ->
+		(step'=999) & (All_Done'=true); 
+
+endmodule
+
+module HUMAN 	
+	//step 7: assessExp (2) 
+	[AssessExplanation] (turn=HUMAN) & (step=assessExp)-> //Wit Considering PT
+		0.6:(Satisfy'=true)&(turn'=HUMAN)&(step'=HumanResponse)
+		+ 0.4:(Satisfy'=false)&(turn'=RVC)&(step'=Explain);
+		
+	//step 10: HumanResponse (2)	
+	[HumanResponse] (turn=HUMAN) &(step=HumanResponse)-> //50% HumanResponse is Helpful...Or 50% unhelpful
+		0.5: (Human_Resp'=Helpful)&(turn'=ENVIRONMENT) & (step'=StepEnd)
+		+ 0.5: (Human_Resp'=unhelpful)&(turn'=ENVIRONMENT) & (step'=StepEnd);
+
+endmodule
+
+//Utilities
+rewards "Explanation_time_consumption"
+	[LessExp] true:1;
+	[MoreExp] true:1;
+endrewards
+
+rewards "Human_satisfaction_rate"
+	[AssessExplanation] (Satisfy=true):1;
+endrewards
+rewards "Human_Dissatisfaction_rate"
+	[AssessExplanation] (Satisfy=false):1;
+endrewards
+
+rewards "Human_Helpful_responses_rate"
+	[HumanResponse] (Human_Resp=Helpful): 1;
+endrewards
+rewards "Human_unhelpful_responses_rate" 
+	[HumanResponse] (Human_Resp=unhelpful): 1;
+endrewards
+
+rewards "LessExp_Provided"
+	[LessExp] true:1;
+endrewards
+
+rewards "MoreExp_Provided"
+	[MoreExp] true:1;
+endrewards
+
+
