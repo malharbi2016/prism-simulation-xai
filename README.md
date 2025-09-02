@@ -6,7 +6,9 @@ It is provided to support **open science, reproducibility, and transparency**.
 ---
 
 ## Contents
-- models – PRISM `.prism` model files
+- models – PRISM `.prism` model files:
+- 1st scenario: With Human Personality Consideration.
+- 2nd Scenario: Without Human Personality Consideration.
 
 ---
 
